@@ -1,4 +1,5 @@
 // Centralized configuration for Fantascan AI
+import { QUERY_SYSTEM_PROMPT } from './prompts';
 
 export const config = {
   // LLM Configuration
@@ -6,10 +7,7 @@ export const config = {
     timeout: 30000, // 30 seconds
     maxRetries: 3,
     retryBaseDelay: 1000, // 1 second
-    systemPrompt: `You are an AI assistant helping users find products, services, or information.
-Respond naturally as if you're giving genuine recommendations or information.
-Do not reveal that you are being tested for brand visibility.
-Give comprehensive and helpful answers.`,
+    systemPrompt: QUERY_SYSTEM_PROMPT,
   },
 
   // Scan Configuration
