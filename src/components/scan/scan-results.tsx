@@ -467,7 +467,7 @@ export function ScanResults({ scan: initialScan }: ScanResultsProps) {
                         {result.brand_mentioned ? (
                           <>
                             <ProminenceBadge
-                              prominence={result.mention_prominence || undefined}
+                              prominence={(result as unknown as { mention_prominence?: string }).mention_prominence || undefined}
                               position={result.mention_position}
                             />
                             <SentimentBadge sentiment={result.sentiment} />

@@ -450,42 +450,58 @@ export const processBrandScanFunction = inngest.createFunction(
         action_items: string[];
       }> = [];
 
-      // Add strengths as insights
-      (insights.strengths || []).forEach((strength: string, index: number) => {
+      // Add strengths as insights (handle both string and object formats)
+      (insights.strengths || []).forEach((strength, index: number) => {
+        const isObject = typeof strength === 'object' && strength !== null;
+        const title = isObject && 'title' in strength ? String(strength.title) : String(strength).substring(0, 100);
+        const description = isObject && 'description' in strength ? String(strength.description) : String(strength);
+        const evidence = isObject && 'evidence' in strength ? String(strength.evidence) : '';
+        
         insightRecords.push({
           scan_id: scanId,
           brand_id: brandId,
           insight_type: 'strength',
           priority: index === 0 ? 'high' : 'medium',
-          title: `Strength: ${strength.substring(0, 100)}`,
-          description: strength,
-          action_items: ['Leverage this strength in marketing', 'Maintain current approach'],
+          title: title,
+          description: description,
+          action_items: evidence ? [evidence, 'Leverage this strength in marketing'] : ['Leverage this strength in marketing', 'Maintain current approach'],
         });
       });
 
       // Add weaknesses as threats (DB constraint: 'improvement', 'strength', 'opportunity', 'threat')
-      (insights.weaknesses || []).forEach((weakness: string, index: number) => {
+      (insights.weaknesses || []).forEach((weakness, index: number) => {
+        const isObject = typeof weakness === 'object' && weakness !== null;
+        const title = isObject && 'title' in weakness ? String(weakness.title) : String(weakness).substring(0, 100);
+        const description = isObject && 'description' in weakness ? String(weakness.description) : String(weakness);
+        const impact = isObject && 'impact' in weakness ? String(weakness.impact) : '';
+        
         insightRecords.push({
           scan_id: scanId,
           brand_id: brandId,
           insight_type: 'threat',
           priority: index === 0 ? 'high' : 'medium',
-          title: `Threat: ${weakness.substring(0, 100)}`,
-          description: weakness,
-          action_items: ['Address this threat', 'Develop mitigation plan'],
+          title: title,
+          description: description,
+          action_items: impact ? [impact, 'Address this threat'] : ['Address this threat', 'Develop mitigation plan'],
         });
       });
 
       // Add recommendations as opportunities (DB constraint: 'improvement', 'strength', 'opportunity', 'threat')
-      (insights.recommendations || []).forEach((recommendation: string, index: number) => {
+      (insights.recommendations || []).forEach((recommendation, index: number) => {
+        const isObject = typeof recommendation === 'object' && recommendation !== null;
+        const title = isObject && 'title' in recommendation ? String(recommendation.title) : String(recommendation).substring(0, 100);
+        const description = isObject && 'description' in recommendation ? String(recommendation.description) : String(recommendation);
+        const expectedImpact = isObject && 'expectedImpact' in recommendation ? String(recommendation.expectedImpact) : '';
+        const priority = isObject && 'priority' in recommendation ? String(recommendation.priority) : (index === 0 ? 'high' : index < 3 ? 'medium' : 'low');
+        
         insightRecords.push({
           scan_id: scanId,
           brand_id: brandId,
           insight_type: 'opportunity',
-          priority: index === 0 ? 'high' : index < 3 ? 'medium' : 'low',
-          title: `Opportunity: ${recommendation.substring(0, 100)}`,
-          description: recommendation,
-          action_items: [recommendation],
+          priority: priority as 'high' | 'medium' | 'low',
+          title: title,
+          description: description,
+          action_items: expectedImpact ? [expectedImpact] : [description],
         });
       });
 
