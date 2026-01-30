@@ -103,6 +103,10 @@ export default async function DashboardPage() {
             score={latestScan?.visibility_score ?? null}
             trend={null}
             lastScanAt={latestScan?.completed_at || null}
+            aiScore={latestScan?.ai_visibility_score ?? null}
+            seoScore={latestScan?.seo_visibility_score ?? null}
+            mentionsCount={latestScan?.mentions_count ?? null}
+            totalProviders={latestScan?.total_providers ?? null}
           />
           <div className="lg:col-span-2">
             <ProviderGrid
