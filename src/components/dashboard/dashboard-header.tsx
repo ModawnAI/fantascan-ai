@@ -5,10 +5,13 @@ import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'motion/react';
 import { SignOut, Gear, User, CreditCard } from '@phosphor-icons/react';
 import { createClient } from '@/lib/supabase/client';
+import { useAlerts } from '@/hooks';
+import { AlertsBell } from '@/components/analytics';
 import type { SubscriptionTier } from '@/types/database';
 
 interface DashboardHeaderProps {
   brandName: string;
+  brandId: string;
   credits: number;
   tier: SubscriptionTier;
 }
@@ -19,9 +22,15 @@ const TIER_LABELS: Record<SubscriptionTier, string> = {
   pro: 'Pro',
 };
 
-export function DashboardHeader({ brandName, credits, tier }: DashboardHeaderProps) {
+export function DashboardHeader({ brandName, brandId, credits, tier }: DashboardHeaderProps) {
   const router = useRouter();
   const [showMenu, setShowMenu] = useState(false);
+  
+  // Fetch alerts for the brand
+  const { alerts, unreadCount, markAsRead, isLoading: alertsLoading } = useAlerts({
+    brandId,
+    limit: 10,
+  });
 
   const handleLogout = async () => {
     const supabase = createClient();
@@ -47,6 +56,14 @@ export function DashboardHeader({ brandName, credits, tier }: DashboardHeaderPro
 
           {/* Right Section */}
           <div className="flex items-center gap-4">
+            {/* Alerts Bell */}
+            <AlertsBell
+              alerts={alerts}
+              unreadCount={unreadCount}
+              onMarkAsRead={markAsRead}
+              isLoading={alertsLoading}
+            />
+            
             {/* Credits Display */}
             <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg">
               <CreditCard size={16} weight="duotone" className="text-white/50" />

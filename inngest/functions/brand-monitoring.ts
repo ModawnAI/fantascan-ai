@@ -7,7 +7,15 @@ import {
   type BrandAnalysisInput,
   type BrandDetectionResult,
 } from '@/services/brand-detection';
-import type { ProviderType } from '@/types/database';
+import {
+  calculateShareOfVoice,
+  extractCitations,
+  generateRecommendations,
+  checkAlerts,
+  checkHallucination,
+  extractBrandFacts,
+} from '@/services/analytics';
+import type { ProviderType, AlertConfig } from '@/types/database';
 
 // Lazy-initialized Supabase admin client to avoid build-time env requirement
 let _supabaseAdmin: SupabaseClient | null = null;
@@ -220,6 +228,213 @@ export const processBrandScanFunction = inngest.createFunction(
         },
         results as BrandDetectionResult[]
       );
+    });
+
+    // Step 5.1: Calculate Share of Voice
+    const sovData = await step.run('calculate-share-of-voice', async () => {
+      return calculateShareOfVoice({
+        brandName: brandInfo.name,
+        competitors: brandInfo.competitors || [],
+        results: results as BrandDetectionResult[],
+      });
+    });
+
+    // Step 5.2: Extract citations from responses
+    await step.run('extract-citations', async () => {
+      const citationPromises = results.map(async (result) => {
+        if (result.error || !result.responseText) return;
+        
+        // Get scan_result_id for this provider
+        const { data: scanResult } = await getSupabaseAdmin()
+          .from('scan_results')
+          .select('id')
+          .eq('scan_id', scanId)
+          .eq('provider', result.provider)
+          .single();
+        
+        if (!scanResult) return;
+        
+        const citations = extractCitations({
+          responseText: result.responseText,
+          provider: result.provider as ProviderType,
+          scanId,
+          scanResultId: scanResult.id,
+          brandId,
+        });
+        
+        if (citations.length > 0) {
+          await getSupabaseAdmin().from('citations').insert(citations);
+        }
+      });
+      
+      await Promise.all(citationPromises);
+    });
+
+    // Step 5.3: Check for hallucinations
+    const hallucinationResults = await step.run('check-hallucinations', async () => {
+      const brandFacts = extractBrandFacts(brandInfo.description || '');
+      const hallucinationChecks = await Promise.all(
+        results
+          .filter(r => !r.error && r.brandMentioned && r.responseText)
+          .map(async (result) => {
+            const check = await checkHallucination({
+              brandName: brandInfo.name,
+              brandDescription: brandInfo.description || '',
+              brandFacts,
+              aiResponse: result.responseText,
+              provider: result.provider,
+            });
+            return { provider: result.provider, ...check };
+          })
+      );
+      
+      // Update scan_results with hallucination data
+      for (const check of hallucinationChecks) {
+        await getSupabaseAdmin()
+          .from('scan_results')
+          .update({
+            accuracy_score: check.accuracyScore,
+            has_hallucination: check.hasHallucination,
+            hallucination_details: check.inaccuracies.length > 0
+              ? JSON.stringify(check.inaccuracies)
+              : null,
+          })
+          .eq('scan_id', scanId)
+          .eq('provider', check.provider);
+      }
+      
+      return hallucinationChecks;
+    });
+
+    // Step 5.4: Generate content recommendations
+    await step.run('generate-recommendations', async () => {
+      const recommendations = await generateRecommendations({
+        brandName: brandInfo.name,
+        brandDescription: brandInfo.description || '',
+        keywords: brandInfo.keywords || [],
+        competitors: brandInfo.competitors || [],
+        results: results as BrandDetectionResult[],
+        scanId,
+        brandId,
+      });
+      
+      if (recommendations.length > 0) {
+        await getSupabaseAdmin().from('content_recommendations').insert(
+          recommendations.map(rec => ({
+            ...rec,
+            status: 'pending',
+          }))
+        );
+      }
+    });
+
+    // Step 5.5: Store competitor analysis
+    await step.run('store-competitor-analysis', async () => {
+      if (sovData.competitorAnalysis.length > 0) {
+        await getSupabaseAdmin().from('competitor_analysis').insert(
+          sovData.competitorAnalysis.map(ca => ({
+            ...ca,
+            scan_id: scanId,
+            brand_id: brandId,
+          }))
+        );
+      }
+    });
+
+    // Step 5.6: Store visibility history
+    await step.run('store-visibility-history', async () => {
+      // Calculate provider scores
+      const providerScores: Record<string, number> = {};
+      results.forEach((result) => {
+        if (!result.error) {
+          providerScores[result.provider] = result.brandMentioned ? 100 : 0;
+        }
+      });
+      
+      // Calculate competitor SOV
+      const competitorSov: Record<string, number> = {};
+      sovData.competitorSOV.forEach(c => {
+        competitorSov[c.brandName] = c.percentage;
+      });
+      
+      await getSupabaseAdmin().from('visibility_history').upsert({
+        brand_id: brandId,
+        scan_id: scanId,
+        recorded_at: new Date().toISOString(),
+        visibility_score: insights.overallVisibilityScore,
+        ai_visibility_score: 0, // Will be calculated below
+        seo_visibility_score: 0, // Will be calculated below
+        provider_scores: providerScores,
+        competitor_sov: competitorSov,
+        mentions_count: results.filter(r => r.brandMentioned).length,
+        total_providers: results.filter(r => !r.error).length,
+      }, {
+        onConflict: 'brand_id,recorded_at::date',
+      });
+    });
+
+    // Step 5.7: Check and trigger alerts
+    await step.run('check-alerts', async () => {
+      // Get alert configs for this brand
+      const { data: alertConfigs } = await getSupabaseAdmin()
+        .from('alert_configs')
+        .select('*')
+        .eq('brand_id', brandId)
+        .eq('is_active', true);
+      
+      if (!alertConfigs || alertConfigs.length === 0) return;
+      
+      // Get previous scan data for comparison
+      const { data: previousHistory } = await getSupabaseAdmin()
+        .from('visibility_history')
+        .select('*')
+        .eq('brand_id', brandId)
+        .order('recorded_at', { ascending: false })
+        .limit(2);
+      
+      const previousData = previousHistory && previousHistory.length > 1
+        ? previousHistory[1]
+        : null;
+      
+      // Check for hallucinations
+      const hasHallucination = hallucinationResults.some(h => h.hasHallucination);
+      const hallucinationDetails = hallucinationResults
+        .filter(h => h.hasHallucination)
+        .map(h => `${h.provider}: ${h.inaccuracies.map(i => i.claimedFact).join(', ')}`)
+        .join('; ');
+      
+      // Prepare alert check input
+      const currentSentiment = {
+        positive: results.filter(r => r.sentiment === 'positive').length,
+        neutral: results.filter(r => r.sentiment === 'neutral').length,
+        negative: results.filter(r => r.sentiment === 'negative').length,
+      };
+      
+      const alerts = checkAlerts(alertConfigs as AlertConfig[], {
+        brandId,
+        userId,
+        currentScore: insights.overallVisibilityScore,
+        previousScore: previousData?.visibility_score || null,
+        currentSOV: Object.fromEntries(sovData.competitorSOV.map(c => [c.brandName, c.percentage])),
+        previousSOV: previousData?.competitor_sov || null,
+        currentSentiment,
+        previousSentiment: null, // Would need to store this in history
+        hasNewCitation: false, // Would need to track new citations
+        hasHallucination,
+        hallucinationDetails,
+      });
+      
+      // Store triggered alerts
+      if (alerts.length > 0) {
+        await getSupabaseAdmin().from('alerts').insert(
+          alerts.map(alert => ({
+            user_id: userId,
+            brand_id: brandId,
+            ...alert,
+            sent_via: ['in_app'],
+          }))
+        );
+      }
     });
 
     // Step 6: Store insights as individual records

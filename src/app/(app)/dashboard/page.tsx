@@ -7,6 +7,7 @@ import { ProviderGrid } from '@/components/dashboard/provider-grid';
 import { QueryTemplates } from '@/components/dashboard/query-templates';
 import { QuickInsights } from '@/components/dashboard/quick-insights';
 import { RecentScans } from '@/components/dashboard/recent-scans';
+import { AnalyticsDashboard } from '@/components/dashboard/analytics-dashboard';
 
 export const metadata: Metadata = {
   title: '대시보드 - 판타스캔 AI',
@@ -90,6 +91,7 @@ export default async function DashboardPage() {
     <>
       <DashboardHeader
         brandName={brand.name}
+        brandId={brand.id}
         credits={profile?.credits || 0}
         tier={profile?.plan || 'free'}
       />
@@ -123,6 +125,9 @@ export default async function DashboardPage() {
             brandName={brand.name}
           />
         </div>
+
+        {/* Analytics Section */}
+        <AnalyticsDashboard brandId={brand.id} />
 
         {/* Bottom Row: Recent Scans */}
         <RecentScans scans={recentScans || []} />

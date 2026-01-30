@@ -36,3 +36,13 @@ export {
 
 // Service Worker hooks
 export { useServiceWorker } from './use-service-worker';
+
+// Analytics hooks
+export {
+  useTrends,
+  useShareOfVoice,
+  useCitations,
+  useRecommendations,
+  useAlerts,
+  useAlertConfigs,
+} from './use-analytics';
