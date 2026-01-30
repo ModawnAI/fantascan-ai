@@ -512,7 +512,7 @@ export function LandingPage() {
                 className="bg-gray-50 rounded-2xl p-6 lg:p-8 relative"
               >
                 <Quotes size={40} weight="fill" className="text-primary-200 absolute top-6 right-6" />
-                <p className="text-gray-700 mb-6 relative z-10 leading-relaxed">"{testimonial.quote}"</p>
+                <p className="text-gray-700 mb-6 relative z-10 leading-relaxed">&ldquo;{testimonial.quote}&rdquo;</p>
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-primary-100 rounded-full flex items-center justify-center text-2xl">
                     {testimonial.avatar}
