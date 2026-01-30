@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS visibility_history (
   brand_id UUID NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
   scan_id UUID REFERENCES scans(id) ON DELETE SET NULL,
   recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  recorded_date DATE NOT NULL DEFAULT CURRENT_DATE,
   
   -- Scores
   visibility_score INTEGER NOT NULL DEFAULT 0,
@@ -28,7 +29,7 @@ CREATE TABLE IF NOT EXISTS visibility_history (
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   
   -- One record per brand per day
-  UNIQUE(brand_id, (recorded_at::date))
+  UNIQUE(brand_id, recorded_date)
 );
 
 -- Indexes for visibility_history
