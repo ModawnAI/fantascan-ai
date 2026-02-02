@@ -18,7 +18,6 @@ const PROVIDERS: { id: ProviderType; name: string; color: string; icon: string }
   { id: 'anthropic', ...PROVIDER_DISPLAY.anthropic },
   { id: 'grok', ...PROVIDER_DISPLAY.grok },
   { id: 'perplexity', ...PROVIDER_DISPLAY.perplexity },
-  { id: 'google_search', ...PROVIDER_DISPLAY.google_search },
 ];
 
 export function ProviderGrid({ providerScores, brandId }: ProviderGridProps) {
