@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { createClient } from '@/lib/supabase/client';
+import { ensureUserExists } from '@/lib/ensure-user';
 import type { IndustryType } from '@/types/database';
 
 const INDUSTRIES: { value: IndustryType; label: string }[] = [
@@ -113,6 +114,13 @@ export function OnboardingWizard() {
 
       if (!user) {
         router.push('/login');
+        return;
+      }
+
+      // Ensure user record exists in public.users table (fallback for auth trigger)
+      const userExists = await ensureUserExists(supabase, user);
+      if (!userExists) {
+        setError('사용자 정보 생성 중 오류가 발생했습니다. 다시 시도해주세요.');
         return;
       }
 

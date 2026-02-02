@@ -13,6 +13,7 @@ import {
 } from '@/lib/errors';
 import { rateLimiters } from '@/lib/rate-limit';
 import { logger } from '@/lib/logger';
+import { ensureUserExists } from '@/lib/ensure-user';
 
 const MAX_BRANDS_PER_USER = 10;
 
@@ -33,6 +34,12 @@ export async function POST(request: NextRequest) {
     // Validate request body
     const body = await request.json();
     const validatedData = validate(createBrandSchema, body);
+
+    // Ensure user record exists in public.users table (fallback for auth trigger)
+    const userExists = await ensureUserExists(supabase, user);
+    if (!userExists) {
+      throw new DatabaseError('create user record');
+    }
 
     // Check existing brand count
     const { count, error: countError } = await supabase
