@@ -85,7 +85,7 @@ export interface ScanResult {
   brand_mentioned: boolean;
   mention_position: number | null;
   mention_context: string | null;
-  sentiment: 'positive' | 'neutral' | 'negative' | null;
+  sentiment_score: 'positive' | 'neutral' | 'negative' | null;
   competitor_mentions: Record<string, number>;
   response_time_ms: number;
   error_message: string | null;

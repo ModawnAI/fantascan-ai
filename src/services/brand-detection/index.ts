@@ -387,7 +387,12 @@ export async function analyzeBrandMention(
       );
 
       try {
-        const parsed = JSON.parse(analysisResponse.content);
+        // Strip markdown code blocks if present
+        let jsonContent = analysisResponse.content.trim();
+        if (jsonContent.startsWith('```')) {
+          jsonContent = jsonContent.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+        }
+        const parsed = JSON.parse(jsonContent);
         sentiment = parsed.sentiment || 'neutral';
         confidence = parsed.confidence || 0.5;
         mentionContext = parsed.mentionContext || 'neutral_mention';
@@ -632,7 +637,12 @@ export async function generateInsights(
     );
 
     try {
-      const insights = JSON.parse(insightResponse.content);
+      // Strip markdown code blocks if present
+      let jsonContent = insightResponse.content.trim();
+      if (jsonContent.startsWith('```')) {
+        jsonContent = jsonContent.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+      }
+      const insights = JSON.parse(jsonContent);
       return {
         overallAssessment: insights.overallAssessment || `${brandInfo.brandName}의 AI 가시성 점수는 ${overallVisibilityScore}점입니다.`,
         overallVisibilityScore,

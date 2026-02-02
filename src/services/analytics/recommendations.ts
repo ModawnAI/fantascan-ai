@@ -250,7 +250,12 @@ JSON 배열만 응답하세요.`;
       { temperature: 0.7, maxTokens: 1500, timeout: 20000 }
     );
     
-    const parsed = JSON.parse(response.content);
+    // Strip markdown code blocks if present
+    let jsonContent = response.content.trim();
+    if (jsonContent.startsWith('```')) {
+      jsonContent = jsonContent.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '');
+    }
+    const parsed = JSON.parse(jsonContent);
     return parsed.map((rec: GeneratedRecommendation) => ({
       ...rec,
       target_provider: null,

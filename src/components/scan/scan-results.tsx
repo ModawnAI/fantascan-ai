@@ -330,7 +330,7 @@ function ProviderResultCard({
           {result.brand_mentioned ? (
             <>
               <ProminenceBadge prominence={prominence} position={result.mention_position} />
-              <SentimentBadge sentiment={result.sentiment} />
+              <SentimentBadge sentiment={result.sentiment_score} />
               <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
                 <Eye weight="fill" className="text-green-400" size={16} />
               </div>
@@ -427,7 +427,7 @@ export function ScanResults({ scan: initialScan }: ScanResultsProps) {
       ...scan.scan_results.map(r => {
         const info = PROVIDER_INFO[r.provider] || DEFAULT_PROVIDER;
         const prominence = (r as unknown as { mention_prominence?: string }).mention_prominence;
-        return `- ${info.name}: ${r.brand_mentioned ? `✅ 언급됨 (${prominence || '언급'}, ${r.sentiment || '중립'})` : '❌ 미언급'}`;
+        return `- ${info.name}: ${r.brand_mentioned ? `✅ 언급됨 (${prominence || '언급'}, ${r.sentiment_score || '중립'})` : '❌ 미언급'}`;
       }),
       ``,
       `## 인사이트`,
@@ -469,8 +469,8 @@ export function ScanResults({ scan: initialScan }: ScanResultsProps) {
     const results = scan.scan_results;
     const validResults = results.filter(r => r.status === 'success');
     const mentioned = validResults.filter(r => r.brand_mentioned);
-    const positive = mentioned.filter(r => r.sentiment === 'positive');
-    const negative = mentioned.filter(r => r.sentiment === 'negative');
+    const positive = mentioned.filter(r => r.sentiment_score === 'positive');
+    const negative = mentioned.filter(r => r.sentiment_score === 'negative');
     const aiResults = validResults.filter(r => PROVIDER_INFO[r.provider]?.category === 'ai');
     const searchResults = validResults.filter(r => PROVIDER_INFO[r.provider]?.category === 'search');
     const aiMentioned = aiResults.filter(r => r.brand_mentioned);

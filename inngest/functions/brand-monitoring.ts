@@ -206,7 +206,7 @@ export const processBrandScanFunction = inngest.createFunction(
           brand_mentioned: result.brandMentioned,
           mention_position: result.mentionPosition,
           mention_context: result.brandMentioned ? result.responseText.substring(0, 500) : null,
-          sentiment: result.sentiment || null, // text: 'positive', 'neutral', 'negative'
+          sentiment_score: result.sentiment || null, // text: 'positive', 'neutral', 'negative'
           competitor_mentions: competitorsToRecord((result.competitorsMentioned || []).filter((c): c is string => typeof c === 'string')),
           response_time_ms: result.durationMs || 0,
           error_message: result.error || null,
