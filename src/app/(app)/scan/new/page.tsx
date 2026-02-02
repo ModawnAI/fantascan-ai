@@ -13,7 +13,6 @@ const PROVIDERS: { id: ProviderType; name: string; color: string; description: s
   { id: 'anthropic', name: 'Claude', color: PROVIDER_DISPLAY.anthropic.color, description: 'Anthropic의 Claude 모델', credits: CREDIT_COSTS.anthropic },
   { id: 'grok', name: 'Grok', color: PROVIDER_DISPLAY.grok.color, description: 'xAI의 Grok 모델', credits: CREDIT_COSTS.grok },
   { id: 'perplexity', name: 'Perplexity', color: PROVIDER_DISPLAY.perplexity.color, description: '실시간 검색 AI', credits: CREDIT_COSTS.perplexity },
-  { id: 'google_search', name: 'Google Search', color: PROVIDER_DISPLAY.google_search.color, description: '기존 검색엔진', credits: CREDIT_COSTS.google_search },
 ];
 
 function ScanNewPageContent() {
