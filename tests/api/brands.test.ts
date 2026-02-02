@@ -16,7 +16,7 @@ function createChainableMock(finalResult: unknown) {
   };
 
   // Make each method return the chain object for chaining
-  Object.keys(chainMethods).forEach((key) => {
+  (Object.keys(chainMethods) as Array<keyof typeof chainMethods>).forEach((key) => {
     if (key === 'then') {
       // Make the chain thenable (awaitable) with the final result
       chainMethods[key].mockImplementation((resolve: (value: unknown) => void) => {

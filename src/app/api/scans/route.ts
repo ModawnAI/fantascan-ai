@@ -152,7 +152,15 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+
+    // Debug logging
+    logger.info('Auth check in GET /api/scans', {
+      hasUser: !!user,
+      userId: user?.id,
+      authError: authError?.message,
+      cookies: request.cookies.getAll().map(c => c.name),
+    });
 
     if (!user) {
       throw new UnauthorizedError();
