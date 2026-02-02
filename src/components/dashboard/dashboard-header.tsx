@@ -40,7 +40,7 @@ export function DashboardHeader({ brandName, brandId, credits, tier }: Dashboard
   };
 
   return (
-    <header className="bg-white/5 backdrop-blur-xl border-b border-white/10">
+    <header className="relative z-50 bg-white/5 backdrop-blur-xl border-b border-white/10">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
