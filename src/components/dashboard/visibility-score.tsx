@@ -72,7 +72,7 @@ export function VisibilityScore({
   const offset = score !== null ? circumference - (score / 100) * circumference : circumference;
 
   return (
-    <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
+    <div id="visibility-score" className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Sparkle size={20} weight="duotone" className="text-primary-400" />

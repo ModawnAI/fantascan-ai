@@ -8,10 +8,28 @@ import { QueryTemplates } from '@/components/dashboard/query-templates';
 import { QuickInsights } from '@/components/dashboard/quick-insights';
 import { RecentScans } from '@/components/dashboard/recent-scans';
 import { AnalyticsDashboard } from '@/components/dashboard/analytics-dashboard';
+import { KeywordHeatmap } from '@/components/dashboard/keyword-heatmap';
+import { VisibilityTimeline } from '@/components/dashboard/visibility-timeline';
+import { BenchmarkComparison } from '@/components/dashboard/benchmark-comparison';
+import type { ProviderType } from '@/types/database';
 
 export const metadata: Metadata = {
   title: '대시보드 - 판타스캔 AI',
   description: 'AI 가시성 모니터링 대시보드',
+};
+
+// Industry display names for Korean
+const INDUSTRY_NAMES: Record<string, string> = {
+  fintech: '핀테크',
+  ecommerce: '이커머스',
+  saas: 'SaaS',
+  education: '교육',
+  healthcare: '헬스케어',
+  fnb: '식품/외식',
+  beauty: '뷰티',
+  travel: '여행',
+  realestate: '부동산',
+  other: '기타',
 };
 
 export default async function DashboardPage() {
@@ -87,6 +105,85 @@ export default async function DashboardPage() {
   const weaknesses = insights.filter((i: { insight_type: string }) => i.insight_type === 'threat' || i.insight_type === 'improvement');
   const recommendations = insights.filter((i: { insight_type: string }) => i.insight_type === 'opportunity');
 
+  // Get visibility history for timeline (last 30 days)
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const { data: visibilityHistory } = await supabase
+    .from('visibility_history')
+    .select('*')
+    .eq('brand_id', brand.id)
+    .gte('recorded_at', thirtyDaysAgo.toISOString())
+    .order('recorded_at', { ascending: true });
+
+  // Transform visibility history to timeline data
+  const timelineData = (visibilityHistory || []).map(h => ({
+    date: h.recorded_at,
+    overallScore: h.visibility_score || 0,
+    aiScore: h.ai_visibility_score || 0,
+    seoScore: h.seo_visibility_score || 0,
+  }));
+
+  // Get keyword exposures for heatmap
+  const { data: keywordExposures } = await supabase
+    .from('keyword_exposure')
+    .select('*')
+    .eq('brand_id', brand.id)
+    .order('recorded_at', { ascending: false })
+    .limit(50);
+
+  // Type for keyword exposure records
+  type KeywordExposureRecord = {
+    keyword: string;
+    exposure_score: number | null;
+    provider_scores: Record<string, number> | null;
+    recorded_at: string;
+  };
+
+  // Group keyword exposures and get latest per keyword
+  const keywordMap = new Map<string, KeywordExposureRecord>();
+  for (const exp of (keywordExposures || []) as KeywordExposureRecord[]) {
+    if (!keywordMap.has(exp.keyword)) {
+      keywordMap.set(exp.keyword, exp);
+    }
+  }
+
+  // Transform to heatmap data
+  const heatmapData = Array.from(keywordMap.values())
+    .slice(0, 10)
+    .map(exp => {
+      const providerScoresObj = (exp.provider_scores || {}) as Record<ProviderType, number>;
+      const providers: ProviderType[] = ['openai', 'gemini', 'anthropic', 'perplexity', 'grok'];
+      
+      return {
+        keyword: exp.keyword,
+        providers: providers.map(p => ({
+          provider: p,
+          score: providerScoresObj[p] || 0,
+          trend: 'stable' as const,
+        })),
+        overallScore: exp.exposure_score || 0,
+        overallTrend: 'stable' as const,
+      };
+    });
+
+  // Get benchmark data (industry averages)
+  // For now, use simulated data based on industry
+  const benchmarkData = latestScan ? {
+    brandScore: latestScan.visibility_score || 0,
+    industryAverage: 45,
+    industryTop10: 85,
+    industryTop25: 70,
+    industryTop50: 55,
+    competitorScores: (brand.competitors || []).slice(0, 5).map((c: string) => ({
+      name: c,
+      score: Math.floor(Math.random() * 60) + 20, // Simulated scores
+    })),
+    percentileRank: latestScan.visibility_score 
+      ? Math.max(1, Math.min(100, 100 - latestScan.visibility_score))
+      : 50,
+  } : null;
+
   return (
     <>
       <DashboardHeader
@@ -114,6 +211,26 @@ export default async function DashboardPage() {
               brandId={brand.id}
             />
           </div>
+        </div>
+
+        {/* Visibility Timeline (Full Width) */}
+        <VisibilityTimeline
+          data={timelineData}
+          period="30d"
+          isLoading={false}
+        />
+
+        {/* Keywords and Benchmark Row */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <KeywordHeatmap
+            data={heatmapData}
+            isLoading={false}
+          />
+          <BenchmarkComparison
+            data={benchmarkData}
+            industryName={INDUSTRY_NAMES[brand.industry] || brand.industry}
+            isLoading={false}
+          />
         </div>
 
         {/* Middle Row: Quick Insights + Query Templates */}

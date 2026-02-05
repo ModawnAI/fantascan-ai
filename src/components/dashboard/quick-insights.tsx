@@ -12,7 +12,7 @@ export function QuickInsights({ strengths, weaknesses, recommendations }: QuickI
   const hasData = strengths.length > 0 || weaknesses.length > 0 || recommendations.length > 0;
 
   return (
-    <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
+    <div id="quick-insights" className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
       <h3 className="text-base font-medium text-white/60 mb-4">
         빠른 인사이트
       </h3>

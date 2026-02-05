@@ -4,6 +4,7 @@ import { ValidationError } from '../errors';
 // Re-export all schemas
 export * from './scan';
 export * from './brand';
+export * from './question-set';
 
 // Validation helper that throws AppError
 export function validate<T>(schema: z.ZodSchema<T>, data: unknown): T {

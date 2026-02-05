@@ -80,15 +80,89 @@ export interface AlertVisibilityChangedEvent {
   };
 }
 
+// Batch scan events
+export interface BatchScanRequestedEvent {
+  data: {
+    batchScanId: string;
+    brandId: string;
+    userId: string;
+    baseQuery: string;
+    derivedQueries: Array<{
+      query: string;
+      type: string;
+      intent: string;
+      relevanceScore: number;
+      expectedBrandMentionLikelihood: 'high' | 'medium' | 'low';
+    }>;
+    providers: ProviderType[];
+    expansionLevel: string;
+  };
+}
+
+export interface BatchScanCompletedEvent {
+  data: {
+    batchScanId: string;
+    brandId: string;
+    userId: string;
+    aggregatedScore: number;
+    totalQueries: number;
+    timestamp: string;
+  };
+}
+
+// ============================================
+// Batch Scan V2 Events (질문 세트 기반)
+// ============================================
+
+export interface BatchScanV2StartEvent {
+  data: {
+    batchScanId: string;
+    userId: string;
+  };
+}
+
+export interface BatchScanV2ResumeEvent {
+  data: {
+    batchScanId: string;
+    userId: string;
+  };
+}
+
+export interface BatchScanV2CompletedEvent {
+  data: {
+    batchScanId: string;
+    userId: string;
+    overallExposureRate: number;
+    totalQuestions: number;
+    timestamp: string;
+  };
+}
+
+export interface BatchScanV2FailedEvent {
+  data: {
+    batchScanId: string;
+    userId: string;
+    reason: string;
+    timestamp: string;
+  };
+}
+
 /**
  * All Fantascan AI event types
  */
 export type FantascanEvents = {
   'scan/brand.requested': ScanBrandRequestedEvent;
   'scan/brand.completed': ScanBrandCompletedEvent;
+  'scan/batch.requested': BatchScanRequestedEvent;
+  'scan/batch.completed': BatchScanCompletedEvent;
   'brand/scan.requested': BrandScanRequestedEvent;
   'brand/scan.completed': BrandScanCompletedEvent;
   'search/analyze.requested': SearchAnalyzeRequestedEvent;
   'report/generate.requested': ReportGenerateRequestedEvent;
   'alert/visibility.changed': AlertVisibilityChangedEvent;
+  // Batch Scan V2
+  'batch-scan/v2.start': BatchScanV2StartEvent;
+  'batch-scan/v2.resume': BatchScanV2ResumeEvent;
+  'batch-scan/v2.completed': BatchScanV2CompletedEvent;
+  'batch-scan/v2.failed': BatchScanV2FailedEvent;
 };

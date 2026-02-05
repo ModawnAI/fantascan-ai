@@ -103,6 +103,13 @@ export const API = {
   scan: (id: string) => `/api/scans/${id}`,
   user: '/api/user',
   health: '/api/health',
+  // Batch Scan V2
+  questionSets: '/api/question-sets',
+  questionSet: (id: string) => `/api/question-sets/${id}`,
+  questionSetItems: (id: string) => `/api/question-sets/${id}/items`,
+  scanSettings: '/api/settings/scan',
+  batchScans: '/api/batch-scans',
+  batchScan: (id: string) => `/api/batch-scans/${id}`,
 } as const;
 
 /**
@@ -114,4 +121,10 @@ export const CACHE_KEYS = {
   user: 'user',
   scan: (id: string) => `scan-${id}`,
   brand: (id: string) => `brand-${id}`,
+  // Batch Scan V2
+  questionSets: 'question-sets',
+  questionSet: (id: string) => `question-set-${id}`,
+  scanSettings: 'scan-settings',
+  batchScans: 'batch-scans',
+  batchScan: (id: string) => `batch-scan-${id}`,
 } as const;

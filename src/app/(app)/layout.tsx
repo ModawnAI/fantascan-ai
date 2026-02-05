@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'motion/react';
 import { createClient } from '@/lib/supabase/client';
+import { OnboardingProvider } from '@/components/providers/onboarding-provider';
+import { OnboardingTrigger } from '@/components/ui/onboarding-trigger';
 
 export default function AppLayout({
   children,
@@ -37,6 +39,7 @@ export default function AppLayout({
   }
 
   return (
+    <OnboardingProvider>
     <div className="min-h-screen relative overflow-hidden bg-black">
       {/* Animated gradient background */}
       <div className="fixed inset-0 bg-gradient-to-br from-black via-gray-900 to-black" />
@@ -95,6 +98,10 @@ export default function AppLayout({
       <div className="relative z-10 min-h-screen">
         {children}
       </div>
+
+      {/* Onboarding trigger button */}
+      <OnboardingTrigger />
     </div>
+    </OnboardingProvider>
   );
 }

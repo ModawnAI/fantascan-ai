@@ -117,7 +117,7 @@ export function RecentScans({ scans }: RecentScansProps) {
   });
 
   return (
-    <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
+    <div id="recent-scans" className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <ChartLine size={20} weight="duotone" className="text-primary-400" />

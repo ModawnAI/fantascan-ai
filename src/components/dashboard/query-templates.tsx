@@ -35,7 +35,7 @@ export function QueryTemplates({ templates, brandId, brandName }: QueryTemplates
   };
 
   return (
-    <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
+    <div id="query-templates" className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
       <div className="flex items-center gap-2 mb-4">
         <Sparkle size={16} weight="fill" className="text-primary-400" />
         <h3 className="text-base font-medium text-white/60">

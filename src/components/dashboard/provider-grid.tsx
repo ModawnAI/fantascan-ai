@@ -28,7 +28,7 @@ export function ProviderGrid({ providerScores, brandId }: ProviderGridProps) {
   };
 
   return (
-    <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
+    <div id="provider-grid" className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-base font-medium text-white/60">
           AI 제공자별 점수
