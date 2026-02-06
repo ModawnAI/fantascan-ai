@@ -20,6 +20,7 @@ export type IndustryType =
   | 'beauty'
   | 'travel'
   | 'realestate'
+  | 'construction'
   | 'other';
 
 export type QueryType = 'recommendation' | 'comparison' | 'review' | 'ranking';
