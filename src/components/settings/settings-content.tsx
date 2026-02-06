@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, User, Buildings, CreditCard, SignOut, FloppyDisk, CircleNotch } from '@phosphor-icons/react';
+import Link from 'next/link';
+import { ArrowLeft, User, Buildings, CreditCard, SignOut, FloppyDisk, CircleNotch, ListChecks, Gear, CaretRight } from '@phosphor-icons/react';
 import {
   Select,
   SelectContent,
@@ -129,6 +130,48 @@ export function SettingsContent({ user, profile, brand, totalScans }: SettingsCo
       </header>
 
       <main className="container mx-auto px-4 py-6 max-w-2xl space-y-6">
+        {/* Quick Links Section */}
+        <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
+          <div className="p-6 border-b border-white/10">
+            <div className="flex items-center gap-2 text-lg font-semibold text-white">
+              <Gear size={20} weight="fill" />
+              스캔 설정
+            </div>
+            <p className="text-sm text-white/50 mt-1">질문 세트 관리 및 스캔 옵션</p>
+          </div>
+          <div className="divide-y divide-white/5">
+            <Link
+              href="/settings/question-sets"
+              className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors group"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-primary-500/20 flex items-center justify-center">
+                  <ListChecks size={20} weight="duotone" className="text-primary-400" />
+                </div>
+                <div>
+                  <p className="font-medium text-white">질문 세트 관리</p>
+                  <p className="text-sm text-white/50">스캔에 사용할 질문 세트 생성 및 편집</p>
+                </div>
+              </div>
+              <CaretRight size={20} weight="bold" className="text-white/30 group-hover:text-white/60" />
+            </Link>
+            <div className="p-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-500/20 flex items-center justify-center">
+                  <Gear size={20} weight="duotone" className="text-blue-400" />
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium text-white">스캔 반복 횟수</p>
+                  <p className="text-sm text-white/50">Gemini 50회, GPT 50회 (기본값)</p>
+                </div>
+              </div>
+              <p className="text-xs text-white/40 mt-2 ml-13">
+                * 질문 세트 페이지 또는 스캔 시작 시 조절 가능
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Account Section */}
         <div className="bg-white/5 backdrop-blur-xl rounded-2xl border border-white/10 overflow-hidden">
           <div className="p-6 border-b border-white/10">
