@@ -9,7 +9,7 @@ import type { BatchProvider } from '@/types/batch-scan';
  */
 export const CREDIT_COSTS: Record<BatchProvider, number> = {
   gemini: 1,
-  openai: 2,
+  openai: 1,
 } as const;
 
 /**
