@@ -140,15 +140,23 @@ export async function POST(request: NextRequest) {
     const validatedData = validate(createBatchScanSchema, body);
 
     // Get user's scan settings
-    const { data: settings } = await supabase
+    const { data: settings, error: settingsError } = await supabase
       .from('user_scan_settings')
       .select('*')
       .eq('user_id', user.id)
       .single();
 
-    const geminiIterations = settings?.gemini_iterations || 50;
-    const openaiIterations = settings?.openai_iterations || 50;
-    const timeoutMs = settings?.timeout_per_call_ms || 30000;
+    logger.info('Fetched user scan settings', {
+      userId: user.id,
+      hasSettings: !!settings,
+      settingsError: settingsError?.code,
+      geminiIterations: settings?.gemini_iterations,
+      openaiIterations: settings?.openai_iterations,
+    });
+
+    const geminiIterations = settings?.gemini_iterations ?? 50;
+    const openaiIterations = settings?.openai_iterations ?? 50;
+    const timeoutMs = settings?.timeout_per_call_ms ?? 30000;
     const defaultBrandId = settings?.default_brand_id;
 
     // Get question set with items
