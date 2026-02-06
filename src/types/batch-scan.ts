@@ -141,6 +141,8 @@ export interface BatchScanQuestion {
   started_at: string | null;
   completed_at: string | null;
   created_at: string;
+  // 인용 소스 (API 응답에 URL이 있는 경우만)
+  citations?: Citation[];
 }
 
 export interface BatchScanQuestionWithIterations extends BatchScanQuestion {

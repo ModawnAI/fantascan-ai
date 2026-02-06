@@ -15,6 +15,8 @@ import {
   Warning,
   CaretDown,
   CaretUp,
+  Link as LinkIcon,
+  ArrowSquareOut,
 } from '@phosphor-icons/react';
 import Link from 'next/link';
 import { useBatchScan, usePauseBatchScan, useResumeBatchScan } from '@/hooks/use-batch-scans';
@@ -340,6 +342,37 @@ function QuestionCard({ question, isExpanded, onToggle }: QuestionCardProps) {
               {question.sentiment_negative > 0 && (
                 <span className="text-red-400">부정 {question.sentiment_negative}</span>
               )}
+            </div>
+          )}
+
+          {/* Citations (인용 소스 - API 응답에 URL이 있을 때만) */}
+          {question.citations && question.citations.length > 0 && (
+            <div className="space-y-2 pt-2 border-t border-white/10">
+              <div className="flex items-center gap-2 text-xs text-white/50">
+                <LinkIcon size={14} />
+                <span>인용된 소스 ({question.citations.length})</span>
+              </div>
+              <div className="space-y-1">
+                {question.citations.slice(0, 5).map((citation, idx) => (
+                  <a
+                    key={idx}
+                    href={citation.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 p-2 bg-white/5 rounded-lg hover:bg-white/10 transition-colors group"
+                  >
+                    <ArrowSquareOut size={12} className="text-white/40 group-hover:text-primary-400 flex-shrink-0" />
+                    <span className="text-xs text-white/70 group-hover:text-primary-400 truncate">
+                      {citation.title || citation.url}
+                    </span>
+                  </a>
+                ))}
+                {question.citations.length > 5 && (
+                  <p className="text-xs text-white/40 pl-2">
+                    + {question.citations.length - 5}개 더 보기
+                  </p>
+                )}
+              </div>
             </div>
           )}
 

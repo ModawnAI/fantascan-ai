@@ -2,34 +2,16 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { DashboardHeader } from '@/components/dashboard/dashboard-header';
-import { VisibilityScore } from '@/components/dashboard/visibility-score';
-import { ProviderGrid } from '@/components/dashboard/provider-grid';
-import { QueryTemplates } from '@/components/dashboard/query-templates';
+import { VisibilityExposure } from '@/components/dashboard/visibility-exposure';
+import { QuestionExposureList } from '@/components/dashboard/question-exposure-list';
 import { QuickInsights } from '@/components/dashboard/quick-insights';
-import { RecentScans } from '@/components/dashboard/recent-scans';
-import { AnalyticsDashboard } from '@/components/dashboard/analytics-dashboard';
-import { KeywordHeatmap } from '@/components/dashboard/keyword-heatmap';
+import { RecentBatchScans } from '@/components/dashboard/recent-batch-scans';
 import { VisibilityTimeline } from '@/components/dashboard/visibility-timeline';
-import { BenchmarkComparison } from '@/components/dashboard/benchmark-comparison';
-import type { ProviderType } from '@/types/database';
+import { CompetitorSOV } from '@/components/dashboard/competitor-sov';
 
 export const metadata: Metadata = {
   title: '대시보드 - 판타스캔 AI',
   description: 'AI 가시성 모니터링 대시보드',
-};
-
-// Industry display names for Korean
-const INDUSTRY_NAMES: Record<string, string> = {
-  fintech: '핀테크',
-  ecommerce: '이커머스',
-  saas: 'SaaS',
-  education: '교육',
-  healthcare: '헬스케어',
-  fnb: '식품/외식',
-  beauty: '뷰티',
-  travel: '여행',
-  realestate: '부동산',
-  other: '기타',
 };
 
 export default async function DashboardPage() {
@@ -59,13 +41,12 @@ export default async function DashboardPage() {
     .eq('id', user.id)
     .single();
 
-  // Get latest scan with results
-  const { data: latestScan } = await supabase
-    .from('scans')
+  // Get latest completed batch scan (v2)
+  const { data: latestBatchScan } = await supabase
+    .from('batch_scans_v2')
     .select(`
       *,
-      insights (*),
-      scan_results (*)
+      batch_scan_questions (*)
     `)
     .eq('brand_id', brand.id)
     .eq('status', 'completed')
@@ -73,116 +54,82 @@ export default async function DashboardPage() {
     .limit(1)
     .single();
 
-  // Get recent scans
-  const { data: recentScans } = await supabase
-    .from('scans')
-    .select('*')
-    .eq('brand_id', brand.id)
+  // Get recent batch scans
+  const { data: recentBatchScans } = await supabase
+    .from('batch_scans_v2')
+    .select(`
+      id,
+      status,
+      total_questions,
+      completed_questions,
+      total_iterations,
+      completed_iterations,
+      overall_exposure_rate,
+      created_at,
+      completed_at,
+      question_sets (name)
+    `)
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
-    .limit(5);
+    .limit(10);
 
-  // Get query templates for the brand's industry
-  const { data: templates } = await supabase
-    .from('query_templates')
-    .select('*')
-    .eq('industry', brand.industry)
-    .eq('is_active', true);
+  // Calculate overall exposure rate from questions
+  const questions = latestBatchScan?.batch_scan_questions || [];
+  const overallExposureRate = questions.length > 0
+    ? questions.reduce((sum: number, q: { avg_exposure_rate: number | null }) => 
+        sum + (q.avg_exposure_rate || 0), 0) / questions.length
+    : null;
 
-  // Calculate provider scores from scan_results
-  // Score is 100 if brand mentioned, 0 if not
-  const providerScores: Record<string, number> = {};
-  if (latestScan?.scan_results) {
-    for (const result of latestScan.scan_results) {
-      if (result.status === 'success') {
-        providerScores[result.provider] = result.brand_mentioned ? 100 : 0;
+  // Get visibility history for timeline (last 30 days)
+  // Using batch scans data for timeline
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const { data: batchScanHistory } = await supabase
+    .from('batch_scans_v2')
+    .select('id, overall_exposure_rate, completed_at, question_set_id')
+    .eq('brand_id', brand.id)
+    .eq('status', 'completed')
+    .gte('completed_at', thirtyDaysAgo.toISOString())
+    .order('completed_at', { ascending: true });
+
+  // Transform to timeline data
+  const timelineData = (batchScanHistory || []).map(scan => ({
+    date: scan.completed_at,
+    exposureRate: scan.overall_exposure_rate || 0,
+    questionSetId: scan.question_set_id,
+  }));
+
+  // Get competitor SOV from latest scan
+  // Aggregate competitor mentions across all questions
+  const competitorMentions: Record<string, number> = {};
+  const configuredCompetitors = brand.competitors || [];
+  
+  for (const question of questions) {
+    const mentions = (question.competitor_mentions || {}) as Record<string, number>;
+    for (const [competitor, count] of Object.entries(mentions)) {
+      // Only include configured competitors
+      if (configuredCompetitors.includes(competitor)) {
+        competitorMentions[competitor] = (competitorMentions[competitor] || 0) + count;
       }
     }
   }
 
-  // Get insights for quick insights component
-  const insights = latestScan?.insights || [];
-  const strengths = insights.filter((i: { insight_type: string }) => i.insight_type === 'strength');
-  const weaknesses = insights.filter((i: { insight_type: string }) => i.insight_type === 'threat' || i.insight_type === 'improvement');
-  const recommendations = insights.filter((i: { insight_type: string }) => i.insight_type === 'opportunity');
+  // Calculate brand total mentions
+  const brandMentions = questions.reduce((sum: number, q: { gemini_mention_count: number, openai_mention_count: number }) => 
+    sum + (q.gemini_mention_count || 0) + (q.openai_mention_count || 0), 0);
 
-  // Get visibility history for timeline (last 30 days)
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+  // Total iterations for SOV calculation
+  const totalIterations = latestBatchScan?.completed_iterations || 0;
 
-  const { data: visibilityHistory } = await supabase
-    .from('visibility_history')
-    .select('*')
-    .eq('brand_id', brand.id)
-    .gte('recorded_at', thirtyDaysAgo.toISOString())
-    .order('recorded_at', { ascending: true });
-
-  // Transform visibility history to timeline data
-  const timelineData = (visibilityHistory || []).map(h => ({
-    date: h.recorded_at,
-    overallScore: h.visibility_score || 0,
-    aiScore: h.ai_visibility_score || 0,
-    seoScore: h.seo_visibility_score || 0,
-  }));
-
-  // Get keyword exposures for heatmap
-  const { data: keywordExposures } = await supabase
-    .from('keyword_exposure')
-    .select('*')
-    .eq('brand_id', brand.id)
-    .order('recorded_at', { ascending: false })
-    .limit(50);
-
-  // Type for keyword exposure records
-  type KeywordExposureRecord = {
-    keyword: string;
-    exposure_score: number | null;
-    provider_scores: Record<string, number> | null;
-    recorded_at: string;
-  };
-
-  // Group keyword exposures and get latest per keyword
-  const keywordMap = new Map<string, KeywordExposureRecord>();
-  for (const exp of (keywordExposures || []) as KeywordExposureRecord[]) {
-    if (!keywordMap.has(exp.keyword)) {
-      keywordMap.set(exp.keyword, exp);
-    }
-  }
-
-  // Transform to heatmap data
-  const heatmapData = Array.from(keywordMap.values())
-    .slice(0, 10)
-    .map(exp => {
-      const providerScoresObj = (exp.provider_scores || {}) as Record<ProviderType, number>;
-      const providers: ProviderType[] = ['openai', 'gemini', 'anthropic', 'perplexity', 'grok'];
-      
-      return {
-        keyword: exp.keyword,
-        providers: providers.map(p => ({
-          provider: p,
-          score: providerScoresObj[p] || 0,
-          trend: 'stable' as const,
-        })),
-        overallScore: exp.exposure_score || 0,
-        overallTrend: 'stable' as const,
-      };
-    });
-
-  // Get benchmark data (industry averages)
-  // For now, use simulated data based on industry
-  const benchmarkData = latestScan ? {
-    brandScore: latestScan.visibility_score || 0,
-    industryAverage: 45,
-    industryTop10: 85,
-    industryTop25: 70,
-    industryTop50: 55,
-    competitorScores: (brand.competitors || []).slice(0, 5).map((c: string) => ({
-      name: c,
-      score: Math.floor(Math.random() * 60) + 20, // Simulated scores
-    })),
-    percentileRank: latestScan.visibility_score 
-      ? Math.max(1, Math.min(100, 100 - latestScan.visibility_score))
-      : 50,
-  } : null;
+  // Get insights from scan (simplified recommendations)
+  const insights = generateSimpleInsights(
+    overallExposureRate,
+    brandMentions,
+    competitorMentions,
+    totalIterations,
+    configuredCompetitors
+  );
 
   return (
     <>
@@ -194,65 +141,123 @@ export default async function DashboardPage() {
       />
 
       <main className="container mx-auto px-4 py-6 space-y-6">
-        {/* Top Row: Visibility Score + Provider Grid */}
+        {/* Top Row: AI 가시성 노출도 + 경쟁사 점유율 */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <VisibilityScore
-            score={latestScan?.visibility_score ?? null}
-            trend={null}
-            lastScanAt={latestScan?.completed_at || null}
-            aiScore={latestScan?.ai_visibility_score ?? null}
-            seoScore={latestScan?.seo_visibility_score ?? null}
-            mentionsCount={latestScan?.mentions_count ?? null}
-            totalProviders={latestScan?.total_providers ?? null}
+          <VisibilityExposure
+            exposureRate={overallExposureRate}
+            lastScanAt={latestBatchScan?.completed_at || null}
+            totalQuestions={questions.length}
+            totalIterations={totalIterations}
           />
           <div className="lg:col-span-2">
-            <ProviderGrid
-              providerScores={Object.keys(providerScores).length > 0 ? providerScores as Record<import('@/types/database').ProviderType, number> : null}
-              brandId={brand.id}
+            <CompetitorSOV
+              brandName={brand.name}
+              brandMentions={brandMentions}
+              competitorMentions={competitorMentions}
+              totalIterations={totalIterations}
+              configuredCompetitors={configuredCompetitors}
             />
           </div>
         </div>
 
-        {/* Visibility Timeline (Full Width) */}
+        {/* 가시성 추이 (질문 세트 기준) */}
         <VisibilityTimeline
           data={timelineData}
           period="30d"
           isLoading={false}
+          mode="exposure"
         />
 
-        {/* Keywords and Benchmark Row */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <KeywordHeatmap
-            data={heatmapData}
-            isLoading={false}
-          />
-          <BenchmarkComparison
-            data={benchmarkData}
-            industryName={INDUSTRY_NAMES[brand.industry] || brand.industry}
-            isLoading={false}
-          />
-        </div>
+        {/* 질문별 노출도 */}
+        <QuestionExposureList
+          questions={questions.map((q: {
+            id: string;
+            question_text: string;
+            avg_exposure_rate: number | null;
+            gemini_exposure_rate: number | null;
+            openai_exposure_rate: number | null;
+            gemini_mention_count: number;
+            openai_mention_count: number;
+            competitor_mentions: Record<string, number>;
+          }) => ({
+            id: q.id,
+            questionText: q.question_text,
+            avgExposureRate: q.avg_exposure_rate,
+            geminiExposureRate: q.gemini_exposure_rate,
+            openaiExposureRate: q.openai_exposure_rate,
+            geminiMentions: q.gemini_mention_count,
+            openaiMentions: q.openai_mention_count,
+            competitorMentions: q.competitor_mentions,
+          }))}
+          brandName={brand.name}
+          configuredCompetitors={configuredCompetitors}
+        />
 
-        {/* Middle Row: Quick Insights + Query Templates */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* 개선 권장사항 (간단 버전) */}
+        {insights.recommendations.length > 0 && (
           <QuickInsights
-            strengths={strengths.map((i: { description: string }) => i.description)}
-            weaknesses={weaknesses.map((i: { description: string }) => i.description)}
-            recommendations={recommendations.map((i: { description: string }) => i.description)}
+            strengths={insights.strengths}
+            weaknesses={insights.weaknesses}
+            recommendations={insights.recommendations}
           />
-          <QueryTemplates
-            templates={templates || []}
-            brandId={brand.id}
-            brandName={brand.name}
-          />
-        </div>
+        )}
 
-        {/* Analytics Section */}
-        <AnalyticsDashboard brandId={brand.id} />
-
-        {/* Bottom Row: Recent Scans */}
-        <RecentScans scans={recentScans || []} />
+        {/* 최근 스캔 히스토리 */}
+        <RecentBatchScans scans={recentBatchScans || []} />
       </main>
     </>
   );
+}
+
+// 간단한 인사이트 생성 함수
+function generateSimpleInsights(
+  exposureRate: number | null,
+  brandMentions: number,
+  competitorMentions: Record<string, number>,
+  totalIterations: number,
+  configuredCompetitors: string[]
+): { strengths: string[]; weaknesses: string[]; recommendations: string[] } {
+  const strengths: string[] = [];
+  const weaknesses: string[] = [];
+  const recommendations: string[] = [];
+
+  if (exposureRate === null || totalIterations === 0) {
+    return { strengths, weaknesses, recommendations };
+  }
+
+  // Calculate brand SOV
+  const brandSOV = totalIterations > 0 ? (brandMentions / totalIterations) * 100 : 0;
+
+  // Find competitors with higher SOV
+  const competitorsAhead: { name: string; sov: number }[] = [];
+  for (const competitor of configuredCompetitors) {
+    const mentions = competitorMentions[competitor] || 0;
+    const competitorSOV = totalIterations > 0 ? (mentions / totalIterations) * 100 : 0;
+    if (competitorSOV > brandSOV) {
+      competitorsAhead.push({ name: competitor, sov: competitorSOV });
+    }
+  }
+
+  // Generate insights
+  if (exposureRate >= 50) {
+    strengths.push(`AI 가시성 노출도 ${exposureRate.toFixed(1)}%로 양호한 수준입니다.`);
+  } else if (exposureRate >= 30) {
+    weaknesses.push(`AI 가시성 노출도가 ${exposureRate.toFixed(1)}%로 개선이 필요합니다.`);
+  } else {
+    weaknesses.push(`AI 가시성 노출도가 ${exposureRate.toFixed(1)}%로 매우 낮습니다.`);
+  }
+
+  // Recommendations based on competitors
+  if (competitorsAhead.length > 0) {
+    const topCompetitor = competitorsAhead.sort((a, b) => b.sov - a.sov)[0];
+    recommendations.push(
+      `${topCompetitor.name}의 AI 노출도(${topCompetitor.sov.toFixed(1)}%)가 높습니다. 해당 경쟁사의 콘텐츠 전략을 분석해보세요.`
+    );
+  }
+
+  if (exposureRate < 30) {
+    recommendations.push('브랜드 관련 키워드를 포함한 콘텐츠를 더 많이 생성하세요.');
+  }
+
+  return { strengths, weaknesses, recommendations };
 }

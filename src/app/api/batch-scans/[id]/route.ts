@@ -61,6 +61,41 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       throw new DatabaseError('fetch batch scan questions');
     }
 
+    // Fetch citations from completed iterations (only if citations exist)
+    const questionIds = questions?.map(q => q.id) || [];
+    const { data: iterations } = await supabase
+      .from('batch_scan_iterations')
+      .select('batch_scan_question_id, citations')
+      .in('batch_scan_question_id', questionIds)
+      .eq('status', 'success')
+      .not('citations', 'is', null);
+
+    // Group citations by question
+    const citationsByQuestion: Record<string, Array<{ url: string; title?: string }>> = {};
+    for (const iter of iterations || []) {
+      if (iter.citations && Array.isArray(iter.citations)) {
+        const qId = iter.batch_scan_question_id;
+        if (!citationsByQuestion[qId]) {
+          citationsByQuestion[qId] = [];
+        }
+        // Deduplicate by URL
+        for (const citation of iter.citations) {
+          if (citation.url && !citationsByQuestion[qId].some(c => c.url === citation.url)) {
+            citationsByQuestion[qId].push({
+              url: citation.url,
+              title: citation.title,
+            });
+          }
+        }
+      }
+    }
+
+    // Add citations to questions
+    const questionsWithCitations = questions?.map(q => ({
+      ...q,
+      citations: citationsByQuestion[q.id] || [],
+    })) || [];
+
     // Transform response
     const response = {
       id: batchScan.id,
@@ -87,7 +122,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       resumed_at: batchScan.resumed_at,
       completed_at: batchScan.completed_at,
       created_at: batchScan.created_at,
-      questions: questions || [],
+      questions: questionsWithCitations,
     };
 
     logger.debug('Batch scan fetched', {
