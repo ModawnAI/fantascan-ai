@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
+import ReactMarkdown from 'react-markdown';
 import {
   ArrowLeft,
   CircleNotch,
@@ -17,9 +18,13 @@ import {
   CaretUp,
   Link as LinkIcon,
   ArrowSquareOut,
+  Eye,
+  EyeSlash,
+  ChatText,
 } from '@phosphor-icons/react';
 import Link from 'next/link';
-import { useBatchScan, usePauseBatchScan, useResumeBatchScan } from '@/hooks/use-batch-scans';
+import { useBatchScan, usePauseBatchScan, useResumeBatchScan, useBatchScanIterations } from '@/hooks/use-batch-scans';
+import type { BatchScanIteration, BatchProvider } from '@/types/batch-scan';
 import { Button } from '@/components/ui/button';
 import {
   BATCH_SCAN_STATUS_LABELS,
@@ -218,6 +223,7 @@ export function BatchScanDetail({ scanId }: BatchScanDetailProps) {
             <QuestionCard
               key={question.id}
               question={question}
+              scanId={scanId}
               isExpanded={expandedQuestionId === question.id}
               onToggle={() => setExpandedQuestionId(
                 expandedQuestionId === question.id ? null : question.id
@@ -236,11 +242,21 @@ export function BatchScanDetail({ scanId }: BatchScanDetailProps) {
 
 interface QuestionCardProps {
   question: BatchScanQuestion;
+  scanId: string;
   isExpanded: boolean;
   onToggle: () => void;
 }
 
-function QuestionCard({ question, isExpanded, onToggle }: QuestionCardProps) {
+function QuestionCard({ question, scanId, isExpanded, onToggle }: QuestionCardProps) {
+  const [showResponses, setShowResponses] = useState(false);
+  const [activeProvider, setActiveProvider] = useState<BatchProvider>('gemini');
+  const [expandedIterationId, setExpandedIterationId] = useState<string | null>(null);
+
+  // Lazy fetch: only when expanded AND showResponses is true
+  const { iterations, isLoading: iterationsLoading } = useBatchScanIterations(
+    scanId,
+    isExpanded && showResponses ? question.id : null
+  );
   const geminiProgress = calculateProgress(question.gemini_completed, question.gemini_total);
   const openaiProgress = calculateProgress(question.openai_completed, question.openai_total);
 
@@ -345,6 +361,77 @@ function QuestionCard({ question, isExpanded, onToggle }: QuestionCardProps) {
             </div>
           )}
 
+          {/* Individual Responses (개별 응답 보기) */}
+          <div className="pt-2 border-t border-white/10">
+            <button
+              onClick={() => setShowResponses(!showResponses)}
+              className="flex items-center gap-2 text-sm text-primary-400 hover:text-primary-300 transition-colors"
+            >
+              <ChatText size={16} weight="fill" />
+              <span>{showResponses ? '응답 숨기기' : '개별 응답 보기'}</span>
+              {showResponses ? <CaretUp size={12} weight="bold" /> : <CaretDown size={12} weight="bold" />}
+            </button>
+
+            {showResponses && (
+              <div className="mt-3 space-y-3">
+                {/* Provider Tabs */}
+                <div className="flex gap-1">
+                  <button
+                    onClick={() => setActiveProvider('gemini')}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                      activeProvider === 'gemini'
+                        ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                        : 'text-white/50 hover:text-white/70 hover:bg-white/5'
+                    }`}
+                  >
+                    Gemini ({iterations.filter(i => i.provider === 'gemini').length})
+                  </button>
+                  <button
+                    onClick={() => setActiveProvider('openai')}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-colors ${
+                      activeProvider === 'openai'
+                        ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                        : 'text-white/50 hover:text-white/70 hover:bg-white/5'
+                    }`}
+                  >
+                    GPT ({iterations.filter(i => i.provider === 'openai').length})
+                  </button>
+                </div>
+
+                {/* Loading State */}
+                {iterationsLoading && (
+                  <div className="flex items-center justify-center py-6">
+                    <CircleNotch size={20} weight="bold" className="animate-spin text-primary-500" />
+                    <span className="ml-2 text-sm text-white/50">응답을 불러오는 중...</span>
+                  </div>
+                )}
+
+                {/* Iteration Cards */}
+                {!iterationsLoading && (
+                  <div className="space-y-2">
+                    {iterations
+                      .filter(iter => iter.provider === activeProvider)
+                      .map((iter) => (
+                        <IterationCard
+                          key={iter.id}
+                          iteration={iter}
+                          isExpanded={expandedIterationId === iter.id}
+                          onToggleExpand={() => setExpandedIterationId(
+                            expandedIterationId === iter.id ? null : iter.id
+                          )}
+                        />
+                      ))}
+                    {iterations.filter(iter => iter.provider === activeProvider).length === 0 && (
+                      <p className="text-xs text-white/40 py-4 text-center">
+                        {activeProvider === 'gemini' ? 'Gemini' : 'GPT'} 응답이 없습니다.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Citations (인용 소스 - API 응답에 URL이 있을 때만) */}
           {question.citations && question.citations.length > 0 && (
             <div className="space-y-2 pt-2 border-t border-white/10">
@@ -383,6 +470,96 @@ function QuestionCard({ question, isExpanded, onToggle }: QuestionCardProps) {
               <p className="text-xs text-red-300">{question.last_error}</p>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================
+// Iteration Card Component (개별 LLM 응답)
+// ============================================
+
+interface IterationCardProps {
+  iteration: BatchScanIteration;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
+}
+
+function IterationCard({ iteration, isExpanded, onToggleExpand }: IterationCardProps) {
+  const hasContent = iteration.response_text && iteration.response_text.length > 0;
+  const isLong = (iteration.response_text?.length ?? 0) > 300;
+
+  const sentimentLabel: Record<string, { text: string; color: string }> = {
+    positive: { text: '긍정', color: 'text-green-400' },
+    neutral: { text: '중립', color: 'text-gray-400' },
+    negative: { text: '부정', color: 'text-red-400' },
+  };
+
+  return (
+    <div className="bg-white/[0.03] rounded-lg border border-white/[0.06] overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-2">
+        <div className="flex items-center gap-3 text-xs">
+          <span className="text-white/60 font-mono">
+            #{iteration.iteration_index + 1}
+          </span>
+          {iteration.brand_mentioned !== null && (
+            <span className={`flex items-center gap-1 ${
+              iteration.brand_mentioned ? 'text-green-400' : 'text-red-400'
+            }`}>
+              {iteration.brand_mentioned ? (
+                <Eye size={14} weight="fill" />
+              ) : (
+                <EyeSlash size={14} weight="fill" />
+              )}
+              {iteration.brand_mentioned ? '브랜드 노출' : '미노출'}
+            </span>
+          )}
+          {iteration.sentiment && sentimentLabel[iteration.sentiment] && (
+            <span className={sentimentLabel[iteration.sentiment].color}>
+              {sentimentLabel[iteration.sentiment].text}
+            </span>
+          )}
+          {iteration.response_time_ms && (
+            <span className="text-white/40">
+              {(iteration.response_time_ms / 1000).toFixed(1)}s
+            </span>
+          )}
+          {iteration.status === 'failed' && (
+            <span className="text-red-400">실패</span>
+          )}
+          {iteration.status === 'timeout' && (
+            <span className="text-yellow-400">타임아웃</span>
+          )}
+        </div>
+        {hasContent && isLong && (
+          <button
+            onClick={onToggleExpand}
+            className="text-xs text-primary-400 hover:text-primary-300 transition-colors"
+          >
+            {isExpanded ? '접기' : '전체 보기'}
+          </button>
+        )}
+      </div>
+
+      {/* Response Content */}
+      {hasContent && (
+        <div className={`px-3 pb-3 text-sm text-white/70
+          prose prose-invert prose-sm max-w-none
+          prose-p:my-1.5 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-strong:text-white/90
+          ${!isExpanded && isLong ? 'line-clamp-4' : ''}`}
+        >
+          <ReactMarkdown>
+            {iteration.response_text!}
+          </ReactMarkdown>
+        </div>
+      )}
+
+      {/* Error Message */}
+      {iteration.error_message && !hasContent && (
+        <div className="px-3 pb-3">
+          <p className="text-xs text-red-300">{iteration.error_message}</p>
         </div>
       )}
     </div>

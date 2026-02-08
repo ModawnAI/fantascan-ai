@@ -1,0 +1,50 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx tsc --noEmit)",
+      "Bash(npx vitest run *)",
+      "Bash(npx playwright test *)",
+      "Read(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "WebFetch(*)",
+      "mcp__plugin_context7_context7__*",
+      "mcp__plugin_playwright_playwright__*"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push *)",
+      "Bash(git reset --hard *)",
+      "Bash(npm run dev*)",
+      "Bash(npm run build*)"
+    ]
+  },
+  "env": {
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "100000",
+    "MAX_THINKING_TOKENS": "50000"
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const f=process.env.CLAUDE_TOOL_PARAM_FILE_PATH||''; const protect=['.env','.env.local','package-lock.json']; if(protect.some(p=>f.endsWith(p))){console.log('WARNING: Sensitive file modified: '+f); process.exit(2)}\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[Session ended] Fantascan AI - remember: npm run typecheck && npm run test:run'"
+          }
+        ]
+      }
+    ]
+  }
+}

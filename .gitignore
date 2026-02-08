@@ -49,3 +49,6 @@ next-env.d.ts
 *.swp
 *.swo
 .env*.local
+
+# Claude Code (local settings only - shared config is committed)
+.claude/settings.local.json

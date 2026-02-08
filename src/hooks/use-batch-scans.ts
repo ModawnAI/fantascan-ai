@@ -8,6 +8,7 @@ import type {
   BatchScanWithDetails,
   BatchScanStatus,
   BatchScanQuestion,
+  BatchScanIteration,
   CreateBatchScanInput,
   BatchScansResponse,
 } from '@/types/batch-scan';
@@ -20,6 +21,8 @@ import { useCallback } from 'react';
 const API = {
   batchScans: '/api/batch-scans',
   batchScan: (id: string) => `/api/batch-scans/${id}`,
+  batchScanIterations: (id: string, questionId: string) =>
+    `/api/batch-scans/${id}/iterations?questionId=${questionId}`,
 };
 
 // ============================================
@@ -215,6 +218,28 @@ export function useDeleteBatchScan(id: string) {
     isDeleting: isMutating,
     error,
     reset,
+  };
+}
+
+// ============================================
+// Hooks: 질문별 개별 LLM 응답 조회
+// ============================================
+
+interface BatchScanIterationsResponse {
+  iterations: BatchScanIteration[];
+}
+
+export function useBatchScanIterations(batchScanId: string, questionId: string | null) {
+  const { data, error, isLoading } = useSWR<BatchScanIterationsResponse>(
+    questionId ? API.batchScanIterations(batchScanId, questionId) : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
+  return {
+    iterations: data?.iterations ?? [],
+    isLoading,
+    error,
   };
 }
 
